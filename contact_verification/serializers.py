@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import datetime
 
+import twilio
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -10,12 +11,27 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from contact_verification import settings
 from contact_verification.models import ContactVerification, Contact
+from twilio.rest import TwilioRestClient
 
 
 def minify_phone_number(phone_number):
     if phone_number.isdigit() and len(phone_number) > 0 and phone_number[0] == '0':
         phone_number = phone_number[1:]
     return phone_number
+
+
+def send_sms(body, to, from_):
+
+    try:
+        account_sid = settings.CONTACT_VERIFICATION_TWILIO_ACCOUNT_SID
+        auth_token = settings.CONTACT_VERIFICATION_TWILIO_AUTH_TOKEN
+        client = TwilioRestClient(account_sid, auth_token)
+
+        message = client.messages.create(body=body, to=to, from_=from_)
+        return True
+    except twilio.TwilioRestException as e:
+        print e
+        return False
 
 
 class ContactVerificationSerializer(serializers.ModelSerializer):
@@ -53,9 +69,8 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         instance = super(ContactVerificationSerializer, self).create(validated_data)
 
-        # message = settings.CONTACT_VERIFICATION_SMS_TEXT.format(code=pin.code)
-        # is_success = send_sms(message, str(contact), str(settings.CONTACT_VERIFICATION_SENDER))
-        is_success = True
+        message = settings.CONTACT_VERIFICATION_SMS_TEXT.format(code=instance.code)
+        is_success = send_sms(message, str(instance), str(settings.CONTACT_VERIFICATION_SENDER))
 
         if is_success:
             self.message = _("인증코드를 전송하였습니다.")

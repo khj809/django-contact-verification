@@ -41,10 +41,9 @@ class ContactVerification(models.Model):
     class Meta:
         verbose_name = _("연락처 인증")
         verbose_name_plural = _("연락처 인증")
-        # unique_together = ['country_number', 'phone_number']
 
     def __unicode__(self):
-        return "%s %s" % (self.contact, self.code)
+        return "{}{}".format(self.country_number, self.phone_number)
 
     @staticmethod
     def generate_code():
