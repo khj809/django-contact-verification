@@ -7,13 +7,14 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from contact_verification.data import COUNTRY_PHONES
+from contact_verification.settings import CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER
 from contact_verification.validators import PhoneNumberValidator
 from .managers import ContactVerificationQuerySet
 
 
 class Contact(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="contacts")
-    country_number = models.CharField(max_length=10, choices=COUNTRY_PHONES)
+    country_number = models.CharField(max_length=10, choices=COUNTRY_PHONES, blank=True)
     phone_number = models.CharField(max_length=100, validators=[PhoneNumberValidator()])
 
     class Meta:
@@ -24,14 +25,23 @@ class Contact(models.Model):
     def __unicode__(self):
         return "{}-{}".format(self.country_number, self.phone_number)
 
+    def get_full_number(self, exclude_country=False):
+        if exclude_country:
+            return "0"+self.phone_number
+        else:
+            return self.country_number + self.phone_number
+
     def save(self, *args, **kwargs):
+        if not self.country_number:
+            self.country_number = CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER
         if self.phone_number and self.phone_number[0] == '0':
             self.phone_number = self.phone_number[1:]
+
         super(Contact, self).save(*args, **kwargs)
 
 
 class ContactVerification(models.Model):
-    country_number = models.CharField(max_length=10, choices=COUNTRY_PHONES)
+    country_number = models.CharField(max_length=10, choices=COUNTRY_PHONES, blank=True)
     phone_number = models.CharField(max_length=100, validators=[PhoneNumberValidator()])
     code = models.CharField(max_length=10)
     created = models.DateTimeField(auto_now_add=True)
@@ -52,13 +62,24 @@ class ContactVerification(models.Model):
     def is_awaiting(self):
         return ContactVerification.objects.awaiting().filter(id=self.id).exists()
 
+    def get_full_number(self, exclude_country=False):
+        if exclude_country:
+            return "0"+self.phone_number
+        else:
+            return self.country_number + self.phone_number
+
     def save(self, *args, **kwargs):
+        if not self.country_number:
+            self.country_number = CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER
+        if self.phone_number and self.phone_number[0] == '0':
+            self.phone_number = self.phone_number[1:]
+
         pin_exists = ContactVerification.objects.awaiting().filter(
             country_number=self.country_number, phone_number=self.phone_number
         ).exists()
+
         if not pin_exists:
             if not self.code:
                 self.code = ContactVerification.generate_code()
-            if self.phone_number and self.phone_number[0] == '0':
-                self.phone_number = self.phone_number[1:]
+
             super(ContactVerification, self).save(*args, **kwargs)

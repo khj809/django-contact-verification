@@ -4,47 +4,54 @@ from __future__ import unicode_literals
 from django import forms
 from django.utils.translation import ugettext as _
 
-from .models import Pin
+from .data import COUNTRY_PHONES
+from .settings import CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER
+from .validators import PhoneNumberValidator
+from .models import ContactVerification, Contact
 
 
 class ContactVerificationFormMixin(object):
+    country_number = forms.ChoiceField(label='국가번호', choices=COUNTRY_PHONES, required=False)
+    phone_number = forms.CharField(label='연락처', validators=[PhoneNumberValidator()])
     code = forms.CharField(label='인증코드')
-    contact_field_name = 'contact'
+
+    contacts = None
 
     class Media:
         js = ('/static/contact_verification/contact_verification.js',)
 
     def __init__(self, *args, **kwargs):
-        super(ContactVerificationFormMixin, self).__init__(*args, **kwargs)
-
-        if hasattr(self.Meta, 'contact_field_name'):
-            self.contact_field_name = self.Meta.contact_field_name
+        user = kwargs.pop("user", None)
+        if user:
+            self.contacts = user.contacts.all()
+        super(ContactVerificationFormMixin, self).__init__(self, *args, **kwargs)
 
     def save(self, commit=True):
         instance = super(ContactVerificationFormMixin, self).save(commit)
-        contact = self.cleaned_data[self.contact_field_name]
-        code = self.cleaned_data['code']
 
-        if code:
-            pin = Pin.objects.get(contact=contact, code=code)
-            pin.is_verified = True
-            pin.save()
+        kwargs = {
+            'user': instance,
+            'country_number': self.cleaned_data.get('country_number', CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER),
+            'phone_number': self.cleaned_data['phone_number']
+        }
+
+        Contact.objects.create(**kwargs)
         return instance
 
     def clean(self):
         cleaned_data = super(ContactVerificationFormMixin, self).clean()
-        contact = cleaned_data.get(self.contact_field_name)
-        code = cleaned_data.get("code")
+
+        kwargs = {
+            'country_number': cleaned_data.get('country_number', CONTACT_VERIFICATION_DEFAULT_COUNTRY_NUMBER),
+            'phone_number': cleaned_data['phone_number'],
+            'code': cleaned_data['code'],
+        }
 
         # hook for extra contact verification validation
-        self.clean_contact_verification(contact, code)
+        self.clean_contact_verification(**kwargs)
 
-        if code and not Pin.objects.awaiting().filter(contact=contact, code=code).exists():
-            if Pin.objects.filter(contact=contact, code=code).exists():
-                msg = _('인증코드가 만료되었습니다.')
-            else:
-                msg = _('번호를 인증할 수 없습니다.')
-            self.add_error('code', msg)
+        if not ContactVerification.objects.awaiting().filter(**kwargs).exists():
+            self.add_error('code', _("인증번호 또는 전화번호가 올바르지 않습니다."))
 
-    def clean_contact_verification(self, contact, code):
+    def clean_contact_verification(self, country_number, phone_number, code):
         pass

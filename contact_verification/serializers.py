@@ -3,7 +3,6 @@ from __future__ import unicode_literals
 
 import datetime
 
-import twilio
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -11,7 +10,9 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from contact_verification import settings
 from contact_verification.models import ContactVerification, Contact
-from twilio.rest import TwilioRestClient
+
+
+from contact_verification.settings import CONTACT_VERIFICATION_PROVIDER
 
 
 def minify_phone_number(phone_number):
@@ -20,17 +21,37 @@ def minify_phone_number(phone_number):
     return phone_number
 
 
-def send_sms(body, to, from_):
+def send_sms(body, pin, from_):
+    provider = CONTACT_VERIFICATION_PROVIDER
+    if provider == 'twilio':
+        import twilio
+        from twilio.rest import TwilioRestClient
+        try:
+            account_sid = settings.CONTACT_VERIFICATION_TWILIO_ACCOUNT_SID
+            auth_token = settings.CONTACT_VERIFICATION_TWILIO_AUTH_TOKEN
+            client = TwilioRestClient(account_sid, auth_token)
+            to = pin.get_full_number()
 
-    try:
-        account_sid = settings.CONTACT_VERIFICATION_TWILIO_ACCOUNT_SID
-        auth_token = settings.CONTACT_VERIFICATION_TWILIO_AUTH_TOKEN
-        client = TwilioRestClient(account_sid, auth_token)
+            client.messages.create(body=body, to=to, from_=from_)
+            return True
+        except twilio.TwilioRestException as e:
+            return False
+    elif provider == 'coolsms':
+        from sdk.api.message import Message
+        from sdk.exceptions import CoolsmsException
+        try:
+            api_key = settings.CONTACT_VERIFICATION_COOLSMS_API_KEY
+            api_secret = settings.CONTACT_VERIFICATION_COOLSMS_API_SECRET
+            client = Message(api_key, api_secret)
+            to = pin.get_full_number(exclude_country=True)
 
-        message = client.messages.create(body=body, to=to, from_=from_)
-        return True
-    except twilio.TwilioRestException as e:
-        print e
+            kwargs = {'type': 'sms', 'to': to, 'from': from_, 'text': body,}
+            response = client.send(kwargs)
+
+            return "error_list" not in response
+        except CoolsmsException as e:
+            return False
+    else:
         return False
 
 
@@ -70,7 +91,7 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
         instance = super(ContactVerificationSerializer, self).create(validated_data)
 
         message = settings.CONTACT_VERIFICATION_SMS_TEXT.format(code=instance.code)
-        is_success = send_sms(message, str(instance), str(settings.CONTACT_VERIFICATION_SENDER))
+        is_success = send_sms(message, instance, str(settings.CONTACT_VERIFICATION_SENDER))
 
         if is_success:
             self.message = _("인증코드를 전송하였습니다.")
