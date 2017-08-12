@@ -20,7 +20,6 @@ class Contact(models.Model):
     class Meta:
         verbose_name = _("연락처")
         verbose_name_plural = _("연락처")
-        unique_together = ['country_number', 'phone_number']
 
     def __unicode__(self):
         return "{}-{}".format(self.country_number, self.phone_number)

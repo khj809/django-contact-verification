@@ -1,8 +1,6 @@
 # coding=utf-8
 from __future__ import unicode_literals
 
-import datetime
-
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from rest_framework import serializers
@@ -79,7 +77,7 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
             pin = None
 
         if pin and pin.is_awaiting():
-            seconds = (datetime.timedelta(minutes=3)-(timezone.now() - pin.created)).seconds
+            seconds = (timezone.timedelta(minutes=3)-(timezone.now() - pin.created)).seconds
             raise serializers.ValidationError(_("인증코드가 이미 전송되었습니다. %(seconds)s초 후에 재발송 가능합니다.") % {'seconds': seconds})
 
         if not settings.CONTACT_VERIFICATION_ALLOW_CONTACT_OVERRIDE:
@@ -131,8 +129,16 @@ class ContactSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
         ContactVerification.objects.awaiting().filter(**validated_data).delete()
+
         if not settings.CONTACT_VERIFICATION_ALLOW_MULTIPLE_CONTACTS:
             user.contacts.all().delete()
+
+        if settings.CONTACT_VERIFICATION_ALLOW_CONTACT_OVERRIDE:
+            Contact.objects.filter(
+                country_number=validated_data['country_number'],
+                phone_number=validated_data['phone_number']
+            ).delete()
+
         validated_data['user'] = user
         validated_data.pop('code', None)
         return super(ContactSerializer, self).create(validated_data)
