@@ -119,13 +119,6 @@ class ContactSerializer(serializers.ModelSerializer):
                 'error_messages': {'blank': _("전화번호를 입력하세요.")}
             }
         }
-        validators = [
-            UniqueTogetherValidator(
-                queryset=Contact.objects.all(),
-                fields=['country_number', 'phone_number'],
-                message=_("이미 인증된 번호입니다.")
-            )
-        ]
 
     def validate_phone_number(self, value):
         return minify_phone_number(value)
