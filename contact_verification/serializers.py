@@ -82,8 +82,9 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
             seconds = (datetime.timedelta(minutes=3)-(timezone.now() - pin.created)).seconds
             raise serializers.ValidationError(_("인증코드가 이미 전송되었습니다. %(seconds)s초 후에 재발송 가능합니다.") % {'seconds': seconds})
 
-        if Contact.objects.filter(**attrs).exists():
-            raise serializers.ValidationError(_("이미 인증된 번호입니다."))
+        if not settings.CONTACT_VERIFICATION_ALLOW_CONTACT_OVERRIDE:
+            if Contact.objects.filter(**attrs).exists():
+                raise serializers.ValidationError(_("이미 인증된 번호입니다."))
 
         return attrs
 
@@ -108,7 +109,7 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
 
 
 class ContactSerializer(serializers.ModelSerializer):
-    code = serializers.CharField(write_only=True, error_messages= {'blank': _("인증번호를 입력하세요.")})
+    code = serializers.CharField(write_only=True, error_messages={'blank': _("인증번호를 입력하세요.")})
 
     class Meta:
         model = Contact
