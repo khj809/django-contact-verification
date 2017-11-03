@@ -78,7 +78,7 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
 
         if pin and pin.is_awaiting():
             seconds = (timezone.timedelta(minutes=3)-(timezone.now() - pin.created)).seconds
-            raise serializers.ValidationError(_("인증코드가 이미 전송되었습니다. %(seconds)s초 후에 재발송 가능합니다.") % {'seconds': seconds})
+            raise serializers.ValidationError(_("인증번호가 이미 전송되었습니다. %(seconds)s초 후에 재발송 가능합니다.") % {'seconds': seconds})
 
         if not settings.CONTACT_VERIFICATION_ALLOW_CONTACT_OVERRIDE:
             if Contact.objects.filter(**attrs).exists():
@@ -93,10 +93,10 @@ class ContactVerificationSerializer(serializers.ModelSerializer):
         is_success = send_sms(message, instance, str(settings.CONTACT_VERIFICATION_SENDER))
 
         if is_success:
-            self.message = _("인증코드를 전송하였습니다.")
+            self.message = _("인증번호를 전송하였습니다.")
         else:
             instance.delete()
-            raise serializers.ValidationError({'message': _("인증코드 전송을 실패하였습니다.")})
+            raise serializers.ValidationError({'message': _("인증번호 전송을 실패하였습니다.")})
         return instance
 
     def to_representation(self, instance):

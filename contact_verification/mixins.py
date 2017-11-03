@@ -13,7 +13,7 @@ from .models import ContactVerification, Contact
 class ContactVerificationFormMixin(object):
     country_number = forms.ChoiceField(label='국가번호', choices=COUNTRY_PHONES, required=False)
     phone_number = forms.CharField(label='연락처', validators=[PhoneNumberValidator()])
-    code = forms.CharField(label='인증코드')
+    code = forms.CharField(label='인증번호')
 
     contacts = None
 
