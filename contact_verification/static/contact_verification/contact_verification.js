@@ -32,7 +32,7 @@
             var country = $(settings.countrySelector).val();
 
             if (country) {
-                data.country = country;
+                data.country_number = country;
             }
 
             $.ajax({
