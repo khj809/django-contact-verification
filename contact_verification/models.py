@@ -13,7 +13,7 @@ from .managers import ContactVerificationQuerySet
 
 
 class Contact(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="contacts")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="contacts", on_delete=models.CASCADE)
     country_number = models.CharField(max_length=10, choices=COUNTRY_PHONES, blank=True)
     phone_number = models.CharField(max_length=100, validators=[PhoneNumberValidator()])
 
