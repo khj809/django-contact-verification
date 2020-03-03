@@ -7,7 +7,7 @@ from . import views
 router = DefaultRouter()
 router.register(r'pins', views.ContactVerificationViewSet)
 router.register(r'contacts', views.ContactViewSet)
-router.register(r'countries', views.CountryViewSet, base_name='countries')
+router.register(r'countries', views.CountryViewSet, basename='countries')
 
 urlpatterns = [
     url(r'^', include(router.urls)),
